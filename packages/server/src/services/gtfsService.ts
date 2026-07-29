@@ -22,6 +22,8 @@ let data = {
     stopById: new Map<string, GtfsStop>(),
     routes: new Map<string, GtfsRoute>(),
     stopToRouteIds: new Map<string, Set<string>>(),
+    routeToTrips: new Map<string, string[]>(),
+    tripToStops: new Map<string, string[]>(),
 };
 let fileMtimes: Map<string, number> = new Map();
 let loaded = false;
@@ -141,9 +143,11 @@ function loadTrips(): { tripToRoute: Map<string, string>; mtime: number } {
     return { tripToRoute, mtime: getFileMtime(filePath) };
 }
 
-function loadStopTimes(tripToRoute: Map<string, string>): { stopToRouteIds: Map<string, Set<string>>; mtime: number } {
+function loadStopTimes(tripToRoute: Map<string, string>): { stopToRouteIds: Map<string, Set<string>>, routeToTrips: Map<string, string[]>, tripToStops: Map<string, string[]>, mtime: number } {
     const filePath = gtfsFile('stop_times.txt');
     const stopToRouteIds = new Map<string, Set<string>>();
+    const routeToTrips = new Map<string, string[]>();
+    const tripToStops = new Map<string, string[]>();
 
     const content = fs.readFileSync(filePath, 'utf-8');
     let pos = content.indexOf('\n') + 1;
@@ -177,12 +181,28 @@ function loadStopTimes(tripToRoute: Map<string, string>): { stopToRouteIds: Map<
                 stopToRouteIds.set(stopId, routeSet);
             }
             routeSet.add(routeId);
+
+            let trips = routeToTrips.get(routeId);
+            if (!trips) {
+                trips = [];
+                routeToTrips.set(routeId, trips);
+            }
+            if (trips[trips.length - 1] !== tripId) {
+                trips.push(tripId);
+            }
+
+            let stops = tripToStops.get(tripId);
+            if (!stops) {
+                stops = [];
+                tripToStops.set(tripId, stops);
+            }
+            stops.push(stopId);
         }
 
         pos = end + 1;
     }
 
-    return { stopToRouteIds, mtime: getFileMtime(filePath) };
+    return { stopToRouteIds, routeToTrips, tripToStops, mtime: getFileMtime(filePath) };
 }
 
 export function loadGtfs(): void {
@@ -202,6 +222,8 @@ export function loadGtfs(): void {
         stopById: stopsData.stopById,
         routes: routesData.routes,
         stopToRouteIds: stopTimesData.stopToRouteIds,
+        routeToTrips: stopTimesData.routeToTrips,
+        tripToStops: stopTimesData.tripToStops,
     };
 
     const newMtimes = new Map<string, number>();
@@ -287,6 +309,42 @@ export function getRoutesForStop(stopId: string): GtfsRoute[] {
     return [...routeIds]
         .map(id => data.routes.get(id))
         .filter((r): r is GtfsRoute => r !== undefined);
+}
+
+export function doesRouteConnect(routeId: string, originPoleCodes: string[], destinationPoleCodes: string[]): boolean {
+    ensureLoaded();
+    const trips = data.routeToTrips.get(routeId);
+    if (!trips) return false;
+
+    for (const trip of trips) {
+        const stops = data.tripToStops.get(trip);
+        if (!stops) continue;
+
+        let originIndex = -1;
+        for (const origin of originPoleCodes) {
+            const idx = stops.indexOf(origin);
+            if (idx !== -1 && (originIndex === -1 || idx < originIndex)) {
+                originIndex = idx;
+            }
+        }
+
+        if (originIndex === -1) continue;
+
+        let destIndex = -1;
+        for (const dest of destinationPoleCodes) {
+            // Find destination AFTER origin
+            const idx = stops.indexOf(dest, originIndex + 1);
+            if (idx !== -1) {
+                destIndex = idx;
+                break;
+            }
+        }
+
+        if (destIndex !== -1) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // --- Locality search (for autocomplete) ---

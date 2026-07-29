@@ -25,17 +25,20 @@ export class TransitsPositionsService {
         // Build a set of allowed route identifiers (short/long names) if arrivalStopCode provided
         let allowedRouteNames: Set<string> | null = null;
         if (arrivalStopCode) {
-            const routesA = gtfs.getRoutesForStop(String(stopCode));
-            const routesB = gtfs.getRoutesForStop(String(arrivalStopCode));
-            const idsA = new Set(routesA.map(r => r.routeId));
-            const common = routesB.filter(r => idsA.has(r.routeId));
+            const polesB = await this.polesService.getPolesByStopCode(arrivalStopCode);
+            const destinationPoleCodes = polesB.map(p => p.codicePalina).filter(Boolean) as string[];
+            const originPoleCodes = poles.map(p => p.codicePalina).filter(Boolean) as string[];
 
+            const routesA = poles.flatMap(p => gtfs.getRoutesForStop(String(p.codicePalina)));
+            
             allowedRouteNames = new Set<string>();
-            for (const r of common) {
-                if (r.routeShortName) allowedRouteNames.add(String(r.routeShortName).toLowerCase());
-                if (r.routeLongName) allowedRouteNames.add(String(r.routeLongName).toLowerCase());
+            for (const r of routesA) {
+                if (gtfs.doesRouteConnect(r.routeId, originPoleCodes, destinationPoleCodes)) {
+                    if (r.routeShortName) allowedRouteNames.add(String(r.routeShortName).toLowerCase());
+                    if (r.routeLongName) allowedRouteNames.add(String(r.routeLongName).toLowerCase());
+                }
             }
-            // If there are no common routes, set allowedRouteNames to empty set (no results)
+            // If there are no connecting routes, set allowedRouteNames to empty set (no results)
             if (allowedRouteNames.size === 0) allowedRouteNames = new Set();
         }
 
