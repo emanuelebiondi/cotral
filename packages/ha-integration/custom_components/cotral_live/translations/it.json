@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ricerca Fermate Cotral",
+        "description": "Inserisci l'URL del server e i nomi delle località per cercare le fermate.",
+        "data": {
+          "api_url": "URL Server API (es. http://192.168.1.100:3000)",
+          "origin_search": "Ricerca Fermata di Partenza (es. Roma Tiburtina)",
+          "destination_search": "Ricerca Fermata di Arrivo (Opzionale, es. Tivoli)"
+        }
+      },
+      "select_stops": {
+        "title": "Seleziona le Fermate",
+        "description": "Scegli le fermate esatte dai risultati della ricerca.",
+        "data": {
+          "stop_code": "Fermata di Partenza",
+          "arrival_stop_code": "Fermata di Arrivo",
+          "update_interval": "Intervallo di aggiornamento (secondi)"
+        }
+      }
+    },
+    "error": {
+      "no_stops_found": "Nessuna fermata trovata con questo testo",
+      "cannot_connect": "Impossibile connettersi al server",
+      "unknown": "Errore imprevisto"
+    },
+    "abort": {
+      "already_configured": "Questa fermata è già configurata."
+    }
+  }
+}
